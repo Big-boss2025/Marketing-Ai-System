@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>حالة الاشتراك - نظام التسويق الآلي الذكي</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .status-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .status-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .card-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 15px;
+            font-size: 1.5rem;
+            color: white;
+        }
+
+        .subscription-icon { background: linear-gradient(45deg, #4CAF50, #45a049); }
+        .credits-icon { background: linear-gradient(45deg, #2196F3, #1976D2); }
+        .usage-icon { background: linear-gradient(45deg, #FF9800, #F57C00); }
+        .recommendations-icon { background: linear-gradient(45deg, #9C27B0, #7B1FA2); }
+
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .status-badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+
+        .status-active { background: #e8f5e8; color: #2e7d2e; }
+        .status-expired { background: #ffebee; color: #c62828; }
+        .status-grace { background: #fff3e0; color: #ef6c00; }
+        .status-good { background: #e3f2fd; color: #1565c0; }
+        .status-low { background: #fff3e0; color: #ef6c00; }
+        .status-critical { background: #ffebee; color: #c62828; }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-good { background: linear-gradient(90deg, #4CAF50, #45a049); }
+        .progress-warning { background: linear-gradient(90deg, #FF9800, #F57C00); }
+        .progress-danger { background: linear-gradient(90deg, #f44336, #d32f2f); }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 15px 0;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: 500;
+            color: #666;
+        }
+
+        .info-value {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .recommendations-list {
+            list-style: none;
+        }
+
+        .recommendation-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-right: 4px solid #2196F3;
+        }
+
+        .recommendation-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .recommendation-message {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .recommendation-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #2196F3, #1976D2);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(45deg, #FF9800, #F57C00);
+            color: white;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .upgrade-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .upgrade-title {
+            text-align: center;
+            font-size: 2rem;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .plans-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .plan-card {
+            border: 2px solid #f0f0f0;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .plan-card:hover {
+            border-color: #2196F3;
+            transform: translateY(-5px);
+        }
+
+        .plan-card.recommended {
+            border-color: #4CAF50;
+            background: linear-gradient(135deg, #f8fff8 0%, #e8f5e8 100%);
+        }
+
+        .plan-card.recommended::before {
+            content: "الأكثر شعبية";
+            position: absolute;
+            top: -10px;
+            right: 20px;
+            background: #4CAF50;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .plan-name {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .plan-price {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #2196F3;
+            margin-bottom: 5px;
+        }
+
+        .plan-period {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .plan-features {
+            list-style: none;
+            margin: 20px 0;
+        }
+
+        .plan-features li {
+            padding: 8px 0;
+            color: #666;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .plan-features li:last-child {
+            border-bottom: none;
+        }
+
+        .plan-features li i {
+            color: #4CAF50;
+            margin-left: 10px;
+        }
+
+        .upgrade-btn {
+            width: 100%;
+            padding: 12px 20px;
+            background: linear-gradient(45deg, #2196F3, #1976D2);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upgrade-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(33, 150, 243, 0.3);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: white;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 4px solid white;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .status-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .plans-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-crown"></i> حالة الاشتراك</h1>
+            <p>تابع حالة اشتراكك ورصيد الكريديت والاستخدام</p>
+        </div>
+
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>جاري تحميل بيانات الاشتراك...</p>
+        </div>
+
+        <div id="content" style="display: none;">
+            <div class="status-grid">
+                <!-- Subscription Status Card -->
+                <div class="status-card">
+                    <div class="card-header">
+                        <div class="card-icon subscription-icon">
+                            <i class="fas fa-crown"></i>
+                        </div>
+                        <div>
+                            <div class="card-title">حالة الاشتراك</div>
+                            <span id="subscription-badge" class="status-badge"></span>
+                        </div>
+                    </div>
+                    <div id="subscription-details">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Credits Status Card -->
+                <div class="status-card">
+                    <div class="card-header">
+                        <div class="card-icon credits-icon">
+                            <i class="fas fa-coins"></i>
+                        </div>
+                        <div>
+                            <div class="card-title">رصيد الكريديت</div>
+                            <span id="credits-badge" class="status-badge"></span>
+                        </div>
+                    </div>
+                    <div id="credits-details">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Usage Status Card -->
+                <div class="status-card">
+                    <div class="card-header">
+                        <div class="card-icon usage-icon">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <div>
+                            <div class="card-title">الاستخدام اليومي</div>
+                            <span id="usage-badge" class="status-badge"></span>
+                        </div>
+                    </div>
+                    <div id="usage-details">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Recommendations Card -->
+                <div class="status-card">
+                    <div class="card-header">
+                        <div class="card-icon recommendations-icon">
+                            <i class="fas fa-lightbulb"></i>
+                        </div>
+                        <div>
+                            <div class="card-title">التوصيات</div>
+                        </div>
+                    </div>
+                    <div id="recommendations-list">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upgrade Section -->
+            <div id="upgrade-section" class="upgrade-section" style="display: none;">
+                <h2 class="upgrade-title">ترقية الباقة</h2>
+                <p style="text-align: center; color: #666; margin-bottom: 20px;">
+                    اختر الباقة المناسبة لاحتياجاتك
+                </p>
+                <div id="plans-grid" class="plans-grid">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentUserId = 1; // This should be set from session or URL parameter
+        let subscriptionData = null;
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSubscriptionStatus();
+        });
+
+        async function loadSubscriptionStatus() {
+            try {
+                const response = await fetch(`/api/webhooks/subscription/check/${currentUserId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    subscriptionData = data;
+                    displaySubscriptionStatus(data);
+                    displayCreditsStatus(data.credits_status);
+                    displayUsageStatus(data.usage_status);
+                    displayRecommendations(data.recommendations);
+                    
+                    // Show upgrade options if needed
+                    if (!data.subscription_status.is_subscribed || data.recommendations.length > 0) {
+                        loadUpgradeOptions();
+                    }
+                } else {
+                    showError('فشل في تحميل بيانات الاشتراك: ' + data.error);
+                }
+            } catch (error) {
+                showError('خطأ في الاتصال: ' + error.message);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+            }
+        }
+
+        function displaySubscriptionStatus(data) {
+            const subscription = data.subscription_status;
+            const badge = document.getElementById('subscription-badge');
+            const details = document.getElementById('subscription-details');
+
+            // Set badge
+            if (subscription.is_subscribed) {
+                if (subscription.in_grace_period) {
+                    badge.textContent = 'فترة سماح';
+                    badge.className = 'status-badge status-grace';
+                } else {
+                    badge.textContent = 'نشط';
+                    badge.className = 'status-badge status-active';
+                }
+            } else {
+                badge.textContent = 'منتهي';
+                badge.className = 'status-badge status-expired';
+            }
+
+            // Set details
+            details.innerHTML = `
+                <div class="info-row">
+                    <span class="info-label">الباقة الحالية:</span>
+                    <span class="info-value">${subscription.plan_name}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">تاريخ الانتهاء:</span>
+                    <span class="info-value">${subscription.expires_at ? new Date(subscription.expires_at).toLocaleDateString('ar-SA') : 'غير محدد'}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">حالة Odoo:</span>
+                    <span class="info-value">${subscription.odoo_status.has_odoo_subscription ? 'متصل' : 'غير متصل'}</span>
+                </div>
+            `;
+        }
+
+        function displayCreditsStatus(credits) {
+            const badge = document.getElementById('credits-badge');
+            const details = document.getElementById('credits-details');
+
+            // Set badge
+            badge.textContent = credits.status === 'good' ? 'جيد' : 
+                               credits.status === 'moderate' ? 'متوسط' :
+                               credits.status === 'low' ? 'منخفض' : 'نفد';
+            badge.className = `status-badge status-${credits.status === 'good' ? 'good' : 
+                                                    credits.status === 'moderate' ? 'good' :
+                                                    credits.status === 'low' ? 'low' : 'critical'}`;
+
+            // Progress bar class
+            const progressClass = credits.balance_percentage > 50 ? 'progress-good' :
+                                 credits.balance_percentage > 25 ? 'progress-warning' : 'progress-danger';
+
+            // Set details
+            details.innerHTML = `
+                <div class="info-row">
+                    <span class="info-label">الرصيد الحالي:</span>
+                    <span class="info-value">${credits.current_balance} كريديت</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill ${progressClass}" style="width: ${credits.balance_percentage}%"></div>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">الحد الأقصى:</span>
+                    <span class="info-value">${credits.max_credits} كريديت</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">المستخدم هذا الشهر:</span>
+                    <span class="info-value">${credits.used_this_month} كريديت</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">الأيام المتبقية:</span>
+                    <span class="info-value">${credits.estimated_days_remaining || 'غير محدد'} يوم</span>
+                </div>
+            `;
+        }
+
+        function displayUsageStatus(usage) {
+            const badge = document.getElementById('usage-badge');
+            const details = document.getElementById('usage-details');
+
+            // Set badge
+            badge.textContent = usage.overall_status === 'within_limits' ? 'ضمن الحدود' : 'تجاوز الحدود';
+            badge.className = `status-badge ${usage.overall_status === 'within_limits' ? 'status-good' : 'status-critical'}`;
+
+            // Progress bars
+            const postsProgress = usage.daily_posts ? 
+                `<div class="progress-bar">
+                    <div class="progress-fill ${usage.daily_posts.exceeded ? 'progress-danger' : 'progress-good'}" 
+                         style="width: ${Math.min(usage.daily_posts.percentage, 100)}%"></div>
+                </div>` : '';
+
+            const aiProgress = usage.ai_generations ?
+                `<div class="progress-bar">
+                    <div class="progress-fill ${usage.ai_generations.exceeded ? 'progress-danger' : 'progress-good'}" 
+                         style="width: ${Math.min(usage.ai_generations.percentage, 100)}%"></div>
+                </div>` : '';
+
+            // Set details
+            details.innerHTML = `
+                <div class="info-row">
+                    <span class="info-label">المنشورات اليوم:</span>
+                    <span class="info-value">${usage.daily_posts ? `${usage.daily_posts.used}/${usage.daily_posts.limit}` : 'غير محدد'}</span>
+                </div>
+                ${postsProgress}
+                <div class="info-row">
+                    <span class="info-label">AI هذا الشهر:</span>
+                    <span class="info-value">${usage.ai_generations ? `${usage.ai_generations.used}/${usage.ai_generations.limit}` : 'غير محدد'}</span>
+                </div>
+                ${aiProgress}
+                <div class="info-row">
+                    <span class="info-label">المنصات المتاحة:</span>
+                    <span class="info-value">${usage.platforms ? usage.platforms.total_allowed : 'غير محدد'} منصة</span>
+                </div>
+            `;
+        }
+
+        function displayRecommendations(recommendations) {
+            const container = document.getElementById('recommendations-list');
+
+            if (!recommendations || recommendations.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666;">لا توجد توصيات في الوقت الحالي</p>';
+                return;
+            }
+
+            const html = recommendations.map(rec => `
+                <div class="recommendation-item">
+                    <div class="recommendation-title">${rec.title}</div>
+                    <div class="recommendation-message">${rec.message}</div>
+                    <div class="recommendation-actions">
+                        ${rec.actions.map(action => `
+                            <button class="action-btn ${getActionButtonClass(action.type)}" 
+                                    onclick="handleAction('${action.type}')">
+                                ${action.label}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+
+            container.innerHTML = html;
+        }
+
+        function getActionButtonClass(actionType) {
+            switch(actionType) {
+                case 'buy_credits': return 'btn-primary';
+                case 'upgrade_plan': return 'btn-success';
+                case 'upgrade_to_basic': return 'btn-success';
+                case 'upgrade_to_pro': return 'btn-success';
+                case 'wait': return 'btn-warning';
+                default: return 'btn-primary';
+            }
+        }
+
+        async function loadUpgradeOptions() {
+            try {
+                const response = await fetch(`/api/webhooks/subscription/upgrade-options/${currentUserId}`);
+                const data = await response.json();
+
+                if (data.success && data.upgrade_options.length > 0) {
+                    displayUpgradeOptions(data.upgrade_options);
+                    document.getElementById('upgrade-section').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error loading upgrade options:', error);
+            }
+        }
+
+        function displayUpgradeOptions(plans) {
+            const container = document.getElementById('plans-grid');
+
+            const html = plans.map((plan, index) => `
+                <div class="plan-card ${index === 1 ? 'recommended' : ''}">
+                    <div class="plan-name">${plan.name}</div>
+                    <div class="plan-price">$${plan.price}</div>
+                    <div class="plan-period">شهرياً</div>
+                    <ul class="plan-features">
+                        <li><i class="fas fa-check"></i> ${plan.credits_per_month} كريديت شهرياً</li>
+                        ${plan.features.map(feature => `<li><i class="fas fa-check"></i> ${getFeatureName(feature)}</li>`).join('')}
+                        <li><i class="fas fa-check"></i> ${plan.limitations.posts_per_day} منشور يومياً</li>
+                        <li><i class="fas fa-check"></i> ${plan.limitations.ai_generations} AI شهرياً</li>
+                    </ul>
+                    <button class="upgrade-btn" onclick="upgradeToPlan('${plan.plan_type}')">
+                        ترقية الآن
+                    </button>
+                </div>
+            `).join('');
+
+            container.innerHTML = html;
+        }
+
+        function getFeatureName(feature) {
+            const features = {
+                'basic_ai': 'ذكاء اصطناعي أساسي',
+                'advanced_ai': 'ذكاء اصطناعي متقدم',
+                'unlimited_ai': 'ذكاء اصطناعي غير محدود',
+                'social_posting': 'النشر على المنصات',
+                'all_platforms': 'جميع المنصات',
+                'basic_analytics': 'تحليلات أساسية',
+                'advanced_analytics': 'تحليلات متقدمة',
+                'priority_support': 'دعم أولوية',
+                'white_label': 'علامة تجارية مخصصة',
+                'custom_integrations': 'تكاملات مخصصة',
+                'dedicated_support': 'دعم مخصص'
+            };
+            return features[feature] || feature;
+        }
+
+        function handleAction(actionType) {
+            switch(actionType) {
+                case 'buy_credits':
+                    buyCredits();
+                    break;
+                case 'upgrade_plan':
+                case 'upgrade_to_basic':
+                case 'upgrade_to_pro':
+                    document.getElementById('upgrade-section').scrollIntoView({ behavior: 'smooth' });
+                    break;
+                case 'wait':
+                    alert('سيتم إعادة تعيين الحدود غداً في منتصف الليل');
+                    break;
+                default:
+                    console.log('Unknown action:', actionType);
+            }
+        }
+
+        async function buyCredits() {
+            // This would open a payment modal or redirect to payment page
+            const amount = prompt('كم كريديت تريد شراء؟ (1 دولار = 20 كريديت)', '100');
+            if (amount && !isNaN(amount)) {
+                const cost = Math.ceil(parseInt(amount) / 20);
+                if (confirm(`هل تريد شراء ${amount} كريديت بـ $${cost}؟`)) {
+                    try {
+                        const response = await fetch('/api/webhooks/paypal/create-payment', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                user_id: currentUserId,
+                                amount: cost,
+                                description: `شراء ${amount} كريديت`
+                            })
+                        });
+
+                        const data = await response.json();
+                        if (data.success && data.approval_link) {
+                            window.open(data.approval_link, '_blank');
+                        } else {
+                            alert('فشل في إنشاء رابط الدفع: ' + data.error);
+                        }
+                    } catch (error) {
+                        alert('خطأ في الاتصال: ' + error.message);
+                    }
+                }
+            }
+        }
+
+        async function upgradeToPlan(planType) {
+            if (confirm(`هل تريد الترقية إلى باقة ${planType}؟`)) {
+                // This would redirect to Odoo subscription page or payment gateway
+                alert(`سيتم توجيهك لإكمال الترقية إلى باقة ${planType}`);
+                // window.location.href = `/upgrade/${planType}`;
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('loading').innerHTML = `
+                <div style="text-align: center; color: white;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 20px;"></i>
+                    <h3>خطأ</h3>
+                    <p>${message}</p>
+                    <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; background: white; color: #333; border: none; border-radius: 5px; cursor: pointer;">
+                        إعادة المحاولة
+                    </button>
+                </div>
+            `;
+        }
+
+        // Auto-refresh every 5 minutes
+        setInterval(loadSubscriptionStatus, 5 * 60 * 1000);
+    </script>
+</body>
+</html>
+

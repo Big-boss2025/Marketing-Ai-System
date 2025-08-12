@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مساعد التسويق الذكي</title>
+    <style>
+        /* AI Assistant Widget Styles */
+        .ai-assistant-widget {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+            font-family: 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .ai-assistant-toggle {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(37, 99, 235, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            transition: all 0.3s ease;
+            animation: pulse 2s infinite;
+        }
+
+        .ai-assistant-toggle:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 25px rgba(37, 99, 235, 0.4);
+        }
+
+        .ai-assistant-toggle.active {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .ai-assistant-chat {
+            position: absolute;
+            bottom: 80px;
+            right: 0;
+            width: 380px;
+            height: 500px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            transform: translateY(20px);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .ai-assistant-chat.show {
+            display: flex;
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .ai-assistant-header {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+
+        .ai-assistant-header h3 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .ai-assistant-header p {
+            margin: 5px 0 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .ai-assistant-status {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .ai-assistant-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8fafc;
+        }
+
+        .ai-assistant-message {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .ai-assistant-message.user {
+            flex-direction: row-reverse;
+        }
+
+        .ai-assistant-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .ai-assistant-avatar.bot {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+        }
+
+        .ai-assistant-avatar.user {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+
+        .ai-assistant-bubble {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 14px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .ai-assistant-bubble.bot {
+            background: white;
+            color: #374151;
+            border: 1px solid #e5e7eb;
+        }
+
+        .ai-assistant-bubble.user {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+        }
+
+        .ai-assistant-suggestions {
+            padding: 0 20px 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .ai-assistant-suggestion {
+            background: #e0e7ff;
+            color: #3730a3;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .ai-assistant-suggestion:hover {
+            background: #c7d2fe;
+            transform: translateY(-1px);
+        }
+
+        .ai-assistant-input {
+            padding: 20px;
+            border-top: 1px solid #e5e7eb;
+            background: white;
+        }
+
+        .ai-assistant-input-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .ai-assistant-input input {
+            flex: 1;
+            border: 1px solid #d1d5db;
+            border-radius: 25px;
+            padding: 12px 16px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .ai-assistant-input input:focus {
+            border-color: #2563eb;
+        }
+
+        .ai-assistant-send {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .ai-assistant-send:hover {
+            transform: scale(1.1);
+        }
+
+        .ai-assistant-send:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .ai-assistant-typing {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            color: #6b7280;
+            font-size: 12px;
+            padding: 10px 20px;
+        }
+
+        .ai-assistant-typing.show {
+            display: flex;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .typing-dot {
+            width: 4px;
+            height: 4px;
+            background: #6b7280;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-10px); }
+        }
+
+        .ai-assistant-language-selector {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+        }
+
+        .ai-assistant-language-selector select {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 12px;
+            outline: none;
+        }
+
+        .ai-assistant-language-selector select option {
+            background: #2563eb;
+            color: white;
+        }
+
+        .ai-assistant-error {
+            background: #fef2f2;
+            color: #dc2626;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 10px 20px;
+            font-size: 14px;
+            border: 1px solid #fecaca;
+        }
+
+        .ai-assistant-login-prompt {
+            text-align: center;
+            padding: 20px;
+            color: #6b7280;
+        }
+
+        .ai-assistant-login-btn {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .ai-assistant-login-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .ai-assistant-widget {
+                bottom: 15px;
+                right: 15px;
+            }
+
+            .ai-assistant-chat {
+                width: calc(100vw - 30px);
+                height: 400px;
+                right: -10px;
+            }
+        }
+
+        /* RTL Support */
+        [dir="ltr"] .ai-assistant-widget {
+            left: 20px;
+            right: auto;
+        }
+
+        [dir="ltr"] .ai-assistant-chat {
+            left: 0;
+            right: auto;
+        }
+
+        [dir="ltr"] .ai-assistant-message.user {
+            flex-direction: row;
+        }
+
+        [dir="ltr"] .ai-assistant-status {
+            right: 15px;
+            left: auto;
+        }
+
+        [dir="ltr"] .ai-assistant-language-selector {
+            left: 15px;
+            right: auto;
+        }
+    </style>
+</head>
+<body>
+    <!-- AI Assistant Widget -->
+    <div class="ai-assistant-widget" id="aiAssistantWidget">
+        <!-- Toggle Button -->
+        <button class="ai-assistant-toggle" id="aiAssistantToggle">
+            <i class="fas fa-robot"></i>
+        </button>
+
+        <!-- Chat Interface -->
+        <div class="ai-assistant-chat" id="aiAssistantChat">
+            <!-- Header -->
+            <div class="ai-assistant-header">
+                <div class="ai-assistant-status"></div>
+                <div class="ai-assistant-language-selector">
+                    <select id="aiLanguageSelector">
+                        <option value="ar">العربية</option>
+                        <option value="en">English</option>
+                        <option value="fr">Français</option>
+                        <option value="es">Español</option>
+                        <option value="de">Deutsch</option>
+                        <option value="it">Italiano</option>
+                        <option value="pt">Português</option>
+                        <option value="ru">Русский</option>
+                        <option value="zh">中文</option>
+                        <option value="ja">日本語</option>
+                    </select>
+                </div>
+                <h3 id="aiAssistantTitle">مساعد التسويق الذكي</h3>
+                <p id="aiAssistantSubtitle">كيف يمكنني مساعدتك اليوم؟</p>
+            </div>
+
+            <!-- Messages Area -->
+            <div class="ai-assistant-messages" id="aiAssistantMessages">
+                <!-- Welcome Message -->
+                <div class="ai-assistant-message">
+                    <div class="ai-assistant-avatar bot">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="ai-assistant-bubble bot">
+                        مرحباً! أنا مساعدك الذكي للتسويق الآلي. يمكنني مساعدتك في إنشاء المحتوى، تصميم الصور، إنتاج الفيديوهات، وإدارة حملاتك التسويقية. كيف يمكنني مساعدتك اليوم؟
+                    </div>
+                </div>
+            </div>
+
+            <!-- Suggestions -->
+            <div class="ai-assistant-suggestions" id="aiAssistantSuggestions">
+                <button class="ai-assistant-suggestion" data-action="create_facebook_content">
+                    إنشاء محتوى فيسبوك
+                </button>
+                <button class="ai-assistant-suggestion" data-action="generate_image">
+                    توليد صورة
+                </button>
+                <button class="ai-assistant-suggestion" data-action="create_short_video">
+                    إنشاء فيديو قصير
+                </button>
+                <button class="ai-assistant-suggestion" data-action="generate_hashtags">
+                    توليد هاشتاجات
+                </button>
+            </div>
+
+            <!-- Typing Indicator -->
+            <div class="ai-assistant-typing" id="aiAssistantTyping">
+                <div class="typing-dots">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+                <span>المساعد يكتب...</span>
+            </div>
+
+            <!-- Input Area -->
+            <div class="ai-assistant-input">
+                <div class="ai-assistant-input-group">
+                    <input type="text" id="aiAssistantInput" placeholder="اكتب رسالتك هنا..." maxlength="500">
+                    <button class="ai-assistant-send" id="aiAssistantSend">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        class AIAssistantWidget {
+            constructor() {
+                this.isOpen = false;
+                this.currentLanguage = 'ar';
+                this.sessionId = null;
+                this.userId = null;
+                this.apiBaseUrl = '/api/ai-assistant';
+                this.messages = [];
+                
+                this.init();
+            }
+
+            init() {
+                this.bindEvents();
+                this.loadUserSession();
+                this.updateLanguage();
+            }
+
+            bindEvents() {
+                // Toggle chat
+                document.getElementById('aiAssistantToggle').addEventListener('click', () => {
+                    this.toggleChat();
+                });
+
+                // Send message
+                document.getElementById('aiAssistantSend').addEventListener('click', () => {
+                    this.sendMessage();
+                });
+
+                // Enter key to send
+                document.getElementById('aiAssistantInput').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.sendMessage();
+                    }
+                });
+
+                // Language change
+                document.getElementById('aiLanguageSelector').addEventListener('change', (e) => {
+                    this.changeLanguage(e.target.value);
+                });
+
+                // Suggestion clicks
+                document.getElementById('aiAssistantSuggestions').addEventListener('click', (e) => {
+                    if (e.target.classList.contains('ai-assistant-suggestion')) {
+                        this.handleSuggestion(e.target.dataset.action);
+                    }
+                });
+
+                // Close chat when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (!document.getElementById('aiAssistantWidget').contains(e.target)) {
+                        if (this.isOpen) {
+                            this.closeChat();
+                        }
+                    }
+                });
+            }
+
+            toggleChat() {
+                if (this.isOpen) {
+                    this.closeChat();
+                } else {
+                    this.openChat();
+                }
+            }
+
+            openChat() {
+                this.isOpen = true;
+                document.getElementById('aiAssistantChat').classList.add('show');
+                document.getElementById('aiAssistantToggle').classList.add('active');
+                document.getElementById('aiAssistantToggle').innerHTML = '<i class="fas fa-times"></i>';
+                
+                // Focus input
+                setTimeout(() => {
+                    document.getElementById('aiAssistantInput').focus();
+                }, 300);
+            }
+
+            closeChat() {
+                this.isOpen = false;
+                document.getElementById('aiAssistantChat').classList.remove('show');
+                document.getElementById('aiAssistantToggle').classList.remove('active');
+                document.getElementById('aiAssistantToggle').innerHTML = '<i class="fas fa-robot"></i>';
+            }
+
+            async sendMessage() {
+                const input = document.getElementById('aiAssistantInput');
+                const message = input.value.trim();
+                
+                if (!message) return;
+
+                // Clear input and disable send button
+                input.value = '';
+                this.setSendButtonState(false);
+
+                // Add user message to chat
+                this.addMessage(message, 'user');
+
+                // Show typing indicator
+                this.showTyping(true);
+
+                try {
+                    const response = await fetch(`${this.apiBaseUrl}/chat`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            message: message,
+                            user_id: this.userId,
+                            session_id: this.sessionId,
+                            language: this.currentLanguage
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        // Add AI response
+                        this.addMessage(result.response, 'bot');
+                        
+                        // Update session ID
+                        if (result.session_id) {
+                            this.sessionId = result.session_id;
+                        }
+
+                        // Update suggestions
+                        if (result.suggestions && result.suggestions.length > 0) {
+                            this.updateSuggestions(result.suggestions);
+                        }
+
+                        // Handle special cases
+                        if (result.login_required) {
+                            this.showLoginPrompt();
+                        }
+
+                        if (result.credit_shortage) {
+                            this.showCreditShortage(result);
+                        }
+
+                        if (result.task_created) {
+                            this.showTaskCreated(result);
+                        }
+                    } else {
+                        this.addMessage(result.error || 'حدث خطأ غير متوقع', 'bot', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error sending message:', error);
+                    this.addMessage('عذراً، حدث خطأ في الاتصال. يرجى المحاولة مرة أخرى.', 'bot', 'error');
+                } finally {
+                    this.showTyping(false);
+                    this.setSendButtonState(true);
+                }
+            }
+
+            addMessage(content, sender, type = 'normal') {
+                const messagesContainer = document.getElementById('aiAssistantMessages');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `ai-assistant-message ${sender}`;
+
+                const avatar = document.createElement('div');
+                avatar.className = `ai-assistant-avatar ${sender}`;
+                avatar.innerHTML = sender === 'bot' ? '<i class="fas fa-robot"></i>' : '<i class="fas fa-user"></i>';
+
+                const bubble = document.createElement('div');
+                bubble.className = `ai-assistant-bubble ${sender}`;
+                bubble.textContent = content;
+
+                if (type === 'error') {
+                    bubble.style.background = '#fef2f2';
+                    bubble.style.color = '#dc2626';
+                    bubble.style.border = '1px solid #fecaca';
+                }
+
+                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(bubble);
+
+                messagesContainer.appendChild(messageDiv);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+                // Store message
+                this.messages.push({
+                    content,
+                    sender,
+                    timestamp: new Date(),
+                    type
+                });
+            }
+
+            showTyping(show) {
+                const typingIndicator = document.getElementById('aiAssistantTyping');
+                if (show) {
+                    typingIndicator.classList.add('show');
+                } else {
+                    typingIndicator.classList.remove('show');
+                }
+            }
+
+            setSendButtonState(enabled) {
+                const sendButton = document.getElementById('aiAssistantSend');
+                sendButton.disabled = !enabled;
+            }
+
+            updateSuggestions(suggestions) {
+                const suggestionsContainer = document.getElementById('aiAssistantSuggestions');
+                suggestionsContainer.innerHTML = '';
+
+                suggestions.forEach(suggestion => {
+                    const button = document.createElement('button');
+                    button.className = 'ai-assistant-suggestion';
+                    button.dataset.action = suggestion.action;
+                    button.textContent = suggestion.text;
+                    suggestionsContainer.appendChild(button);
+                });
+            }
+
+            async handleSuggestion(action) {
+                try {
+                    const response = await fetch(`${this.apiBaseUrl}/quick-action`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            action: action,
+                            user_id: this.userId,
+                            language: this.currentLanguage
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        this.addMessage(result.response, 'bot');
+                        
+                        if (result.task_created) {
+                            this.showTaskCreated(result);
+                        }
+                    } else {
+                        this.addMessage(result.error || 'حدث خطأ في تنفيذ الإجراء', 'bot', 'error');
+                        
+                        if (result.login_required) {
+                            this.showLoginPrompt();
+                        }
+                        
+                        if (result.credit_shortage) {
+                            this.showCreditShortage(result);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error handling suggestion:', error);
+                    this.addMessage('عذراً، حدث خطأ في تنفيذ الإجراء', 'bot', 'error');
+                }
+            }
+
+            changeLanguage(language) {
+                this.currentLanguage = language;
+                this.updateLanguage();
+                localStorage.setItem('ai_assistant_language', language);
+            }
+
+            updateLanguage() {
+                const translations = {
+                    ar: {
+                        title: 'مساعد التسويق الذكي',
+                        subtitle: 'كيف يمكنني مساعدتك اليوم؟',
+                        placeholder: 'اكتب رسالتك هنا...',
+                        typing: 'المساعد يكتب...'
+                    },
+                    en: {
+                        title: 'Smart Marketing Assistant',
+                        subtitle: 'How can I help you today?',
+                        placeholder: 'Type your message here...',
+                        typing: 'Assistant is typing...'
+                    },
+                    fr: {
+                        title: 'Assistant Marketing Intelligent',
+                        subtitle: 'Comment puis-je vous aider aujourd\'hui?',
+                        placeholder: 'Tapez votre message ici...',
+                        typing: 'L\'assistant tape...'
+                    },
+                    es: {
+                        title: 'Asistente de Marketing Inteligente',
+                        subtitle: '¿Cómo puedo ayudarte hoy?',
+                        placeholder: 'Escribe tu mensaje aquí...',
+                        typing: 'El asistente está escribiendo...'
+                    },
+                    de: {
+                        title: 'Intelligenter Marketing-Assistent',
+                        subtitle: 'Wie kann ich Ihnen heute helfen?',
+                        placeholder: 'Geben Sie Ihre Nachricht hier ein...',
+                        typing: 'Assistent tippt...'
+                    }
+                };
+
+                const lang = translations[this.currentLanguage] || translations.en;
+                
+                document.getElementById('aiAssistantTitle').textContent = lang.title;
+                document.getElementById('aiAssistantSubtitle').textContent = lang.subtitle;
+                document.getElementById('aiAssistantInput').placeholder = lang.placeholder;
+                document.querySelector('#aiAssistantTyping span').textContent = lang.typing;
+
+                // Update direction
+                if (this.currentLanguage === 'ar') {
+                    document.documentElement.setAttribute('dir', 'rtl');
+                } else {
+                    document.documentElement.setAttribute('dir', 'ltr');
+                }
+            }
+
+            showLoginPrompt() {
+                const messagesContainer = document.getElementById('aiAssistantMessages');
+                const loginDiv = document.createElement('div');
+                loginDiv.className = 'ai-assistant-login-prompt';
+                loginDiv.innerHTML = `
+                    <p>يجب تسجيل الدخول لاستخدام هذه الميزة</p>
+                    <button class="ai-assistant-login-btn" onclick="window.location.href='/web/login'">
+                        تسجيل الدخول
+                    </button>
+                `;
+                messagesContainer.appendChild(loginDiv);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+
+            showCreditShortage(result) {
+                const messagesContainer = document.getElementById('aiAssistantMessages');
+                const creditDiv = document.createElement('div');
+                creditDiv.className = 'ai-assistant-error';
+                creditDiv.innerHTML = `
+                    <p>رصيد الكريديت غير كافي</p>
+                    <p>الرصيد الحالي: ${result.current_balance}</p>
+                    <p>المطلوب: ${result.required_credits}</p>
+                    <button class="ai-assistant-login-btn" onclick="window.location.href='/shop/credits'">
+                        شراء كريديت
+                    </button>
+                `;
+                messagesContainer.appendChild(creditDiv);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+
+            showTaskCreated(result) {
+                // Show success message with task details
+                const successMessage = `تم إنشاء المهمة بنجاح!\nرقم المهمة: ${result.task_id}\nالتكلفة: ${result.cost} كريديت\nالرصيد الجديد: ${result.new_balance} كريديت`;
+                this.addMessage(successMessage, 'bot');
+            }
+
+            loadUserSession() {
+                // Try to get user ID from Odoo session or cookies
+                const userId = this.getUserIdFromOdoo();
+                if (userId) {
+                    this.userId = userId;
+                }
+
+                // Load saved language
+                const savedLanguage = localStorage.getItem('ai_assistant_language');
+                if (savedLanguage) {
+                    this.currentLanguage = savedLanguage;
+                    document.getElementById('aiLanguageSelector').value = savedLanguage;
+                }
+            }
+
+            getUserIdFromOdoo() {
+                // This would integrate with Odoo's session management
+                // For now, return null (guest user)
+                return null;
+            }
+        }
+
+        // Initialize the AI Assistant Widget when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            window.aiAssistant = new AIAssistantWidget();
+        });
+    </script>
+</body>
+</html>
+

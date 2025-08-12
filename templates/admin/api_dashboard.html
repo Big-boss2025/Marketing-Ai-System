@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Free API Management Dashboard - Marketing Automation System</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .sidebar {
+            transition: transform 0.3s ease-in-out;
+        }
+        .sidebar-collapsed {
+            transform: translateX(-100%);
+        }
+        @media (min-width: 768px) {
+            .sidebar-collapsed {
+                transform: translateX(0);
+                width: 4rem;
+            }
+        }
+        .content-expanded {
+            margin-left: 4rem;
+        }
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-healthy { background-color: #10b981; }
+        .status-warning { background-color: #f59e0b; }
+        .status-unhealthy { background-color: #ef4444; }
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+        }
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .btn-primary:hover {
+            background-color: #2563eb;
+        }
+        .btn-secondary {
+            background-color: #6b7280;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .btn-secondary:hover {
+            background-color: #4b5563;
+        }
+        .btn-danger {
+            background-color: #ef4444;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .btn-danger:hover {
+            background-color: #dc2626;
+        }
+        .btn-success {
+            background-color: #10b981;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .btn-success:hover {
+            background-color: #059669;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .table th,
+        .table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .table th {
+            background-color: #f9fafb;
+            font-weight: 600;
+        }
+        .free-badge {
+            background-color: #10b981;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .quota-bar {
+            width: 100%;
+            height: 8px;
+            background-color: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .quota-fill {
+            height: 100%;
+            background-color: #3b82f6;
+            transition: width 0.3s ease;
+        }
+        .quota-fill.warning {
+            background-color: #f59e0b;
+        }
+        .quota-fill.danger {
+            background-color: #ef4444;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Sidebar -->
+    <div id="sidebar" class="sidebar fixed left-0 top-0 h-full w-64 bg-white shadow-lg z-50 md:relative md:translate-x-0">
+        <div class="p-6 border-b">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-bold text-gray-800">Free API Manager</h2>
+                <button id="sidebarToggle" class="md:hidden">
+                    <i class="fas fa-times text-gray-600"></i>
+                </button>
+            </div>
+        </div>
+        
+        <nav class="p-4">
+            <ul class="space-y-2">
+                <li>
+                    <a href="#overview" class="nav-link flex items-center p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600">
+                        <i class="fas fa-tachometer-alt w-5"></i>
+                        <span class="ml-3">Overview</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#api-keys" class="nav-link flex items-center p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600">
+                        <i class="fas fa-key w-5"></i>
+                        <span class="ml-3">API Keys</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#usage-stats" class="nav-link flex items-center p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600">
+                        <i class="fas fa-chart-bar w-5"></i>
+                        <span class="ml-3">Usage Statistics</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#free-services" class="nav-link flex items-center p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600">
+                        <i class="fas fa-gift w-5"></i>
+                        <span class="ml-3">Free Services</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#settings" class="nav-link flex items-center p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600">
+                        <i class="fas fa-cog w-5"></i>
+                        <span class="ml-3">Settings</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div id="mainContent" class="md:ml-64 min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b p-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <button id="mobileMenuToggle" class="md:hidden mr-4">
+                        <i class="fas fa-bars text-gray-600"></i>
+                    </button>
+                    <h1 class="text-2xl font-bold text-gray-800">Free API Management Dashboard</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <span class="free-badge">100% Free</span>
+                        <span class="text-sm text-gray-600">No Costs</span>
+                    </div>
+                    <button id="refreshBtn" class="btn-primary">
+                        <i class="fas fa-sync-alt mr-2"></i>
+                        Refresh
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Content Area -->
+        <main class="p-6">
+            <!-- Overview Section -->
+            <section id="overview" class="mb-8">
+                <h2 class="text-xl font-semibold mb-4">Free Services Overview</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                    <!-- Google Gemini Card -->
+                    <div class="card p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center">
+                                <i class="fab fa-google text-2xl text-blue-500 mr-3"></i>
+                                <div>
+                                    <h3 class="font-semibold">Google Gemini</h3>
+                                    <p class="text-sm text-gray-600">Text & Image Generation</p>
+                                </div>
+                            </div>
+                            <span class="status-indicator status-healthy"></span>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-sm">
+                                <span>Monthly Usage</span>
+                                <span>1,250 / 50,000</span>
+                            </div>
+                            <div class="quota-bar">
+                                <div class="quota-fill" style="width: 2.5%"></div>
+                            </div>
+                            <div class="text-xs text-gray-500">Free tier: 50K requests/month</div>
+                        </div>
+                    </div>
+
+                    <!-- Hugging Face Card -->
+                    <div class="card p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center">
+                                <i class="fas fa-robot text-2xl text-yellow-500 mr-3"></i>
+                                <div>
+                                    <h3 class="font-semibold">Hugging Face</h3>
+                                    <p class="text-sm text-gray-600">AI Models Hub</p>
+                                </div>
+                            </div>
+                            <span class="status-indicator status-healthy"></span>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-sm">
+                                <span>Monthly Usage</span>
+                                <span>850 / 30,000</span>
+                            </div>
+                            <div class="quota-bar">
+                                <div class="quota-fill" style="width: 2.8%"></div>
+                            </div>
+                            <div class="text-xs text-gray-500">Free tier: 30K requests/month</div>
+                        </div>
+                    </div>
+
+                    <!-- Google TTS Card -->
+                    <div class="card p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center">
+                                <i class="fas fa-volume-up text-2xl text-green-500 mr-3"></i>
+                                <div>
+                                    <h3 class="font-semibold">Google TTS</h3>
+                                    <p class="text-sm text-gray-600">Text-to-Speech</p>
+                                </div>
+                            </div>
+                            <span class="status-indicator status-healthy"></span>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-sm">
+                                <span>Monthly Usage</span>
+                                <span>15,000 / 1,000,000</span>
+                            </div>
+                            <div class="quota-bar">
+                                <div class="quota-fill" style="width: 1.5%"></div>
+                            </div>
+                            <div class="text-xs text-gray-500">Free tier: 1M characters/month</div>
+                        </div>
+                    </div>
+
+                    <!-- Total Cost Savings Card -->
+                    <div class="card p-6 bg-green-50 border-green-200">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center">
+                                <i class="fas fa-piggy-bank text-2xl text-green-600 mr-3"></i>
+                                <div>
+                                    <h3 class="font-semibold text-green-800">Cost Savings</h3>
+                                    <p class="text-sm text-green-600">Monthly Savings</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-3xl font-bold text-green-600">$0</div>
+                            <div class="text-sm text-green-600">100% Free Services</div>
+                            <div class="text-xs text-green-500 mt-1">Estimated savings: $200+/month</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- API Keys Section -->
+            <section id="api-keys" class="mb-8">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold">Free API Keys Management</h2>
+                    <button id="addApiKeyBtn" class="btn-primary">
+                        <i class="fas fa-plus mr-2"></i>
+                        Add Free API Key
+                    </button>
+                </div>
+
+                <div class="card">
+                    <div class="overflow-x-auto">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Service</th>
+                                    <th>Status</th>
+                                    <th>Usage</th>
+                                    <th>Quota</th>
+                                    <th>Last Used</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="apiKeysTable">
+                                <tr>
+                                    <td>
+                                        <div class="flex items-center">
+                                            <i class="fab fa-google text-blue-500 mr-2"></i>
+                                            <div>
+                                                <div class="font-medium">Google Gemini API</div>
+                                                <div class="text-sm text-gray-500">Text & Image Generation</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            <span class="status-indicator status-healthy mr-1"></span>
+                                            Active
+                                        </span>
+                                    </td>
+                                    <td>1,250 requests</td>
+                                    <td>
+                                        <div class="w-24">
+                                            <div class="quota-bar">
+                                                <div class="quota-fill" style="width: 2.5%"></div>
+                                            </div>
+                                            <div class="text-xs text-gray-500 mt-1">2.5% used</div>
+                                        </div>
+                                    </td>
+                                    <td>2 hours ago</td>
+                                    <td>
+                                        <div class="flex space-x-2">
+                                            <button class="btn-secondary text-xs">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn-primary text-xs">
+                                                <i class="fas fa-chart-line"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <div class="flex items-center">
+                                            <i class="fas fa-robot text-yellow-500 mr-2"></i>
+                                            <div>
+                                                <div class="font-medium">Hugging Face API</div>
+                                                <div class="text-sm text-gray-500">AI Models Hub</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            <span class="status-indicator status-healthy mr-1"></span>
+                                            Active
+                                        </span>
+                                    </td>
+                                    <td>850 requests</td>
+                                    <td>
+                                        <div class="w-24">
+                                            <div class="quota-bar">
+                                                <div class="quota-fill" style="width: 2.8%"></div>
+                                            </div>
+                                            <div class="text-xs text-gray-500 mt-1">2.8% used</div>
+                                        </div>
+                                    </td>
+                                    <td>5 hours ago</td>
+                                    <td>
+                                        <div class="flex space-x-2">
+                                            <button class="btn-secondary text-xs">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn-primary text-xs">
+                                                <i class="fas fa-chart-line"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <div class="flex items-center">
+                                            <i class="fas fa-volume-up text-green-500 mr-2"></i>
+                                            <div>
+                                                <div class="font-medium">Google Text-to-Speech</div>
+                                                <div class="text-sm text-gray-500">Voice Generation</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            <span class="status-indicator status-healthy mr-1"></span>
+                                            Active
+                                        </span>
+                                    </td>
+                                    <td>15,000 chars</td>
+                                    <td>
+                                        <div class="w-24">
+                                            <div class="quota-bar">
+                                                <div class="quota-fill" style="width: 1.5%"></div>
+                                            </div>
+                                            <div class="text-xs text-gray-500 mt-1">1.5% used</div>
+                                        </div>
+                                    </td>
+                                    <td>1 day ago</td>
+                                    <td>
+                                        <div class="flex space-x-2">
+                                            <button class="btn-secondary text-xs">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn-primary text-xs">
+                                                <i class="fas fa-chart-line"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Free Services Information -->
+            <section id="free-services" class="mb-8">
+                <h2 class="text-xl font-semibold mb-4">Available Free Services</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Google Gemini Info -->
+                    <div class="card p-6">
+                        <div class="flex items-center mb-4">
+                            <i class="fab fa-google text-3xl text-blue-500 mr-4"></i>
+                            <div>
+                                <h3 class="font-semibold text-lg">Google Gemini API</h3>
+                                <span class="free-badge">Free Tier</span>
+                            </div>
+                        </div>
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600">Text Generation</span>
+                                <i class="fas fa-check text-green-500"></i>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600">Image Generation</span>
+                                <i class="fas fa-check text-green-500"></i>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600">Monthly Quota</span>
+                                <span class="text-sm font-medium">50,000 requests</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600">Rate Limit</span>
+                                <span class="text-sm font-medium">15/minute</span>
+                            </div>
+                        </div>
+                        <button class="btn-success w-full mt-4">
+                            <i class="fas fa-external-link-alt mr-2"></i>
+                            Get API Key
+                        </button>
+                    </div>
+
+                    <!-- Hugging Face Info -->
+                    <div class="card p-6">
+                        <div class="flex items-center mb-4">
+                            <i class="fas fa-robot text-3xl text-yellow-500 mr-4"></i>
+                            <div>
+                                <h3 class="font-semibold text-lg">Hugging Face API</h3>
+                                <span class="free-badge">Free Tier</span>
+                            </div>
+                        </div>
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600">Text Generation</span>
+                                <i class="fas fa-check text-green-500"></i>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600">Image Generation</span>
+                                <i class="fas fa-check text-green-500"></i>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600">Monthly Quota</span>
+                                <span class="text-sm font-medium">30,000 requests</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600">Rate Limit</span>
+                                <span class="text-sm font-medium">10/minute</span>
+                            </div>
+                        </div>
+                        <button class="btn-success w-full mt-4">
+                            <i class="fas fa-external-link-alt mr-2"></i>
+                            Get API Key
+                        </button>
+                    </div>
+
+                    <!-- Google TTS Info -->
+                    <div class="card p-6">
+                        <div class="flex items-center mb-4">
+                            <i class="fas fa-volume-up text-3xl text-green-500 mr-4"></i>
+                            <div>
+                                <h3 class="font-semibold text-lg">Google TTS API</h3>
+                                <span class="free-badge">Free Tier</span>
+                            </div>
+                        </div>
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600">Text-to-Speech</span>
+                                <i class="fas fa-check text-green-500"></i>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600">Multiple Languages</span>
+                                <i class="fas fa-check text-green-500"></i>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600">Monthly Quota</span>
+                                <span class="text-sm font-medium">1M characters</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600">Rate Limit</span>
+                                <span class="text-sm font-medium">100/minute</span>
+                            </div>
+                        </div>
+                        <button class="btn-success w-full mt-4">
+                            <i class="fas fa-external-link-alt mr-2"></i>
+                            Get API Key
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Usage Statistics -->
+            <section id="usage-stats" class="mb-8">
+                <h2 class="text-xl font-semibold mb-4">Usage Statistics</h2>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="card p-6">
+                        <h3 class="font-semibold mb-4">Monthly Usage Trends</h3>
+                        <canvas id="usageChart" width="400" height="200"></canvas>
+                    </div>
+                    
+                    <div class="card p-6">
+                        <h3 class="font-semibold mb-4">Service Distribution</h3>
+                        <canvas id="serviceChart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Add API Key Modal -->
+    <div id="addApiKeyModal" class="modal">
+        <div class="modal-content">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-semibold">Add Free API Key</h3>
+                <button id="closeModal" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="addApiKeyForm">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Service</label>
+                    <select id="serviceSelect" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">Select a free service</option>
+                        <option value="google_gemini">Google Gemini API</option>
+                        <option value="huggingface">Hugging Face API</option>
+                        <option value="google_tts">Google Text-to-Speech</option>
+                    </select>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">API Key</label>
+                    <input type="password" id="apiKeyInput" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Enter your free API key">
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Endpoint URL (Optional)</label>
+                    <input type="url" id="endpointInput" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Custom endpoint URL">
+                </div>
+                
+                <div class="flex space-x-4">
+                    <button type="submit" class="btn-primary flex-1">
+                        <i class="fas fa-save mr-2"></i>
+                        Save API Key
+                    </button>
+                    <button type="button" id="cancelBtn" class="btn-secondary flex-1">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Sidebar toggle functionality
+        const sidebar = document.getElementById('sidebar');
+        const mainContent = document.getElementById('mainContent');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+
+        function toggleSidebar() {
+            sidebar.classList.toggle('sidebar-collapsed');
+            mainContent.classList.toggle('content-expanded');
+        }
+
+        sidebarToggle?.addEventListener('click', toggleSidebar);
+        mobileMenuToggle?.addEventListener('click', toggleSidebar);
+
+        // Modal functionality
+        const addApiKeyModal = document.getElementById('addApiKeyModal');
+        const addApiKeyBtn = document.getElementById('addApiKeyBtn');
+        const closeModal = document.getElementById('closeModal');
+        const cancelBtn = document.getElementById('cancelBtn');
+
+        addApiKeyBtn?.addEventListener('click', () => {
+            addApiKeyModal.style.display = 'block';
+        });
+
+        closeModal?.addEventListener('click', () => {
+            addApiKeyModal.style.display = 'none';
+        });
+
+        cancelBtn?.addEventListener('click', () => {
+            addApiKeyModal.style.display = 'none';
+        });
+
+        // Close modal when clicking outside
+        window.addEventListener('click', (e) => {
+            if (e.target === addApiKeyModal) {
+                addApiKeyModal.style.display = 'none';
+            }
+        });
+
+        // Form submission
+        const addApiKeyForm = document.getElementById('addApiKeyForm');
+        addApiKeyForm?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const service = document.getElementById('serviceSelect').value;
+            const apiKey = document.getElementById('apiKeyInput').value;
+            const endpoint = document.getElementById('endpointInput').value;
+            
+            if (!service || !apiKey) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            // Here you would typically send the data to your backend
+            console.log('Adding API key for service:', service);
+            
+            // Close modal and reset form
+            addApiKeyModal.style.display = 'none';
+            addApiKeyForm.reset();
+            
+            // Show success message
+            alert('Free API key added successfully!');
+        });
+
+        // Initialize charts
+        function initializeCharts() {
+            // Usage Chart
+            const usageCtx = document.getElementById('usageChart')?.getContext('2d');
+            if (usageCtx) {
+                new Chart(usageCtx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                        datasets: [{
+                            label: 'API Requests',
+                            data: [1200, 1900, 3000, 2500, 2200, 3000],
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Service Distribution Chart
+            const serviceCtx = document.getElementById('serviceChart')?.getContext('2d');
+            if (serviceCtx) {
+                new Chart(serviceCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Google Gemini', 'Hugging Face', 'Google TTS'],
+                        datasets: [{
+                            data: [60, 25, 15],
+                            backgroundColor: ['#3b82f6', '#f59e0b', '#10b981']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Initialize charts when page loads
+        document.addEventListener('DOMContentLoaded', initializeCharts);
+
+        // Refresh functionality
+        const refreshBtn = document.getElementById('refreshBtn');
+        refreshBtn?.addEventListener('click', () => {
+            // Add loading state
+            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Refreshing...';
+            
+            // Simulate API call
+            setTimeout(() => {
+                refreshBtn.innerHTML = '<i class="fas fa-sync-alt mr-2"></i>Refresh';
+                // Here you would typically refresh the data from your backend
+                console.log('Data refreshed');
+            }, 2000);
+        });
+
+        // Navigation functionality
+        const navLinks = document.querySelectorAll('.nav-link');
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                
+                // Remove active class from all links
+                navLinks.forEach(l => l.classList.remove('bg-blue-50', 'text-blue-600'));
+                
+                // Add active class to clicked link
+                link.classList.add('bg-blue-50', 'text-blue-600');
+                
+                // Scroll to section
+                const targetId = link.getAttribute('href').substring(1);
+                const targetSection = document.getElementById(targetId);
+                if (targetSection) {
+                    targetSection.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام التسويق الآلي المجاني - لوحة التحكم الإدارية</title>
+    <link rel="stylesheet" href="css/admin-dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="loading-screen">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>جاري تحميل لوحة التحكم...</p>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div id="mainContainer" class="main-container" style="display: none;">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-robot"></i>
+                    <h2>التسويق المجاني</h2>
+                </div>
+                <button class="sidebar-toggle" id="sidebarToggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+
+            <nav class="sidebar-nav">
+                <ul class="nav-menu">
+                    <li class="nav-item active">
+                        <a href="#dashboard" class="nav-link" data-page="dashboard">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <span>لوحة المعلومات</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#users" class="nav-link" data-page="users">
+                            <i class="fas fa-users"></i>
+                            <span>إدارة المستخدمين</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#subscriptions" class="nav-link" data-page="subscriptions">
+                            <i class="fas fa-credit-card"></i>
+                            <span>الاشتراكات والباقات</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#credits" class="nav-link" data-page="credits">
+                            <i class="fas fa-coins"></i>
+                            <span>إدارة الكريديت</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#apis" class="nav-link" data-page="apis">
+                            <i class="fas fa-plug"></i>
+                            <span>إعدادات APIs</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#features" class="nav-link" data-page="features">
+                            <i class="fas fa-toggle-on"></i>
+                            <span>إدارة الميزات</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#content" class="nav-link" data-page="content">
+                            <i class="fas fa-file-alt"></i>
+                            <span>إدارة المحتوى</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#campaigns" class="nav-link" data-page="campaigns">
+                            <i class="fas fa-bullhorn"></i>
+                            <span>الحملات التسويقية</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#analytics" class="nav-link" data-page="analytics">
+                            <i class="fas fa-chart-bar"></i>
+                            <span>التحليلات والتقارير</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#system" class="nav-link" data-page="system">
+                            <i class="fas fa-cog"></i>
+                            <span>إعدادات النظام</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="system-status">
+                    <div class="status-indicator online" id="systemStatus"></div>
+                    <span>النظام متصل</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <h1 id="pageTitle">لوحة المعلومات</h1>
+                    <div class="breadcrumb">
+                        <span>الرئيسية</span>
+                        <i class="fas fa-chevron-left"></i>
+                        <span id="currentPage">لوحة المعلومات</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="header-actions">
+                        <button class="btn btn-primary" id="refreshData">
+                            <i class="fas fa-sync-alt"></i>
+                            تحديث البيانات
+                        </button>
+                        <div class="notification-bell">
+                            <i class="fas fa-bell"></i>
+                            <span class="notification-badge">3</span>
+                        </div>
+                        <div class="admin-profile">
+                            <img src="https://via.placeholder.com/40x40" alt="Admin" class="profile-avatar">
+                            <div class="profile-info">
+                                <span class="profile-name">المدير العام</span>
+                                <span class="profile-role">مدير النظام</span>
+                            </div>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Dashboard Page -->
+                <div id="dashboardPage" class="page-content active">
+                    <!-- Stats Cards -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon users">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="totalUsers">0</h3>
+                                <p>إجمالي المستخدمين</p>
+                                <span class="stat-change positive">+12% هذا الشهر</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon revenue">
+                                <i class="fas fa-dollar-sign"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="totalRevenue">مجاني 100%</h3>
+                                <p>توفير في التكاليف</p>
+                                <span class="stat-change positive">$200+ شهرياً</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon tasks">
+                                <i class="fas fa-tasks"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="totalTasks">0</h3>
+                                <p>المهام المكتملة</p>
+                                <span class="stat-change positive">+25% هذا الأسبوع</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon credits">
+                                <i class="fas fa-coins"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="totalCredits">0</h3>
+                                <p>الكريديت المستخدم</p>
+                                <span class="stat-change positive">+15% هذا الأسبوع</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Section -->
+                    <div class="charts-section">
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <h3>إحصائيات الاستخدام</h3>
+                                <div class="chart-controls">
+                                    <select id="chartPeriod">
+                                        <option value="7">آخر 7 أيام</option>
+                                        <option value="30" selected>آخر 30 يوم</option>
+                                        <option value="90">آخر 3 أشهر</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="chart-content">
+                                <canvas id="usageChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <h3>توزيع الاشتراكات</h3>
+                            </div>
+                            <div class="chart-content">
+                                <canvas id="subscriptionChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="activity-section">
+                        <div class="section-header">
+                            <h3>النشاط الأخير</h3>
+                            <a href="#" class="view-all">عرض الكل</a>
+                        </div>
+                        <div class="activity-list" id="recentActivity">
+                            <!-- Activity items will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Other pages will be loaded dynamically -->
+                <div id="usersPage" class="page-content"></div>
+                <div id="subscriptionsPage" class="page-content"></div>
+                <div id="creditsPage" class="page-content"></div>
+                <div id="apisPage" class="page-content"></div>
+                <div id="featuresPage" class="page-content"></div>
+                <div id="contentPage" class="page-content"></div>
+                <div id="campaignsPage" class="page-content"></div>
+                <div id="analyticsPage" class="page-content"></div>
+                <div id="systemPage" class="page-content"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Container -->
+    <div id="modalContainer"></div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/admin-dashboard.js"></script>
+    <script src="js/api-client.js"></script>
+    <script src="js/components.js"></script>
+</body>
+</html>
+
