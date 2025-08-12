@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token
 from src.models.base import db
 from src.models.user import User
@@ -8,22 +8,24 @@ from src.models.credit_transaction import CreditTransaction
 from src.models.subscription import UserSubscription
 from src.services.credit_manager import credit_manager
 from src.services.task_pricing import pricing_engine
+from src.services.external_api_integration import api_integration
 import json
 import uuid
 from datetime import datetime, timedelta
 import logging
-import openai
+import google.generativeai as genai
 import os
 
 ai_assistant_bp = Blueprint('ai_assistant', __name__)
 logger = logging.getLogger(__name__)
 
-# Configure OpenAI
-openai.api_key = os.getenv('OPENAI_API_KEY')
-openai.api_base = os.getenv('OPENAI_API_BASE', 'https://api.openai.com/v1')
+# Configure Google Gemini
+gemini_api_key = os.getenv('GOOGLE_GEMINI_API_KEY')
+if gemini_api_key:
+    genai.configure(api_key=gemini_api_key)
 
 class AIAssistant:
-    """AI Assistant for handling user queries and automating marketing tasks"""
+    """AI Assistant for handling user queries and automating marketing tasks using Google Gemini"""
     
     def __init__(self):
         self.supported_languages = {
@@ -49,8 +51,14 @@ class AIAssistant:
             'social_media_marketing': {
                 'name_ar': 'التسويق عبر وسائل التواصل الاجتماعي',
                 'name_en': 'Social Media Marketing',
-                'description_ar': 'استخدام منصات التواصل للوصول للجمهور المستهدف',
-                'description_en': 'Using social platforms to reach target audience'
+                'description_ar': 'استخدام منصات التواصل الاجتماعي للوصول للعملاء',
+                'description_en': 'Using social media platforms to reach customers'
+            },
+            'email_marketing': {
+                'name_ar': 'التسويق عبر البريد الإلكتروني',
+                'name_en': 'Email Marketing',
+                'description_ar': 'إرسال رسائل تسويقية مستهدفة عبر البريد الإلكتروني',
+                'description_en': 'Sending targeted marketing messages via email'
             },
             'influencer_marketing': {
                 'name_ar': 'التسويق عبر المؤثرين',
@@ -58,410 +66,530 @@ class AIAssistant:
                 'description_ar': 'التعاون مع المؤثرين للترويج للمنتجات',
                 'description_en': 'Collaborating with influencers to promote products'
             },
-            'email_marketing': {
-                'name_ar': 'التسويق عبر البريد الإلكتروني',
-                'name_en': 'Email Marketing',
-                'description_ar': 'إرسال رسائل مخصصة للعملاء المحتملين',
-                'description_en': 'Sending personalized messages to potential customers'
-            },
-            'seo_marketing': {
-                'name_ar': 'تحسين محركات البحث',
-                'name_en': 'SEO Marketing',
-                'description_ar': 'تحسين المحتوى للظهور في نتائج البحث',
-                'description_en': 'Optimizing content for search engine visibility'
-            },
-            'paid_advertising': {
-                'name_ar': 'الإعلانات المدفوعة',
-                'name_en': 'Paid Advertising',
-                'description_ar': 'إنشاء حملات إعلانية مستهدفة',
-                'description_en': 'Creating targeted advertising campaigns'
-            },
             'viral_marketing': {
                 'name_ar': 'التسويق الفيروسي',
                 'name_en': 'Viral Marketing',
                 'description_ar': 'إنشاء محتوى قابل للانتشار السريع',
-                'description_en': 'Creating content designed to spread rapidly'
+                'description_en': 'Creating content that spreads rapidly'
+            }
+        }
+        
+        self.task_types = {
+            'content_generation': {
+                'name_ar': 'إنشاء المحتوى',
+                'name_en': 'Content Generation',
+                'credits_required': 5
             },
-            'brand_storytelling': {
-                'name_ar': 'سرد قصة العلامة التجارية',
-                'name_en': 'Brand Storytelling',
-                'description_ar': 'بناء هوية العلامة التجارية من خلال القصص',
-                'description_en': 'Building brand identity through storytelling'
+            'image_generation': {
+                'name_ar': 'إنشاء الصور',
+                'name_en': 'Image Generation',
+                'credits_required': 10
+            },
+            'video_generation': {
+                'name_ar': 'إنشاء الفيديو',
+                'name_en': 'Video Generation',
+                'credits_required': 20
+            },
+            'audio_generation': {
+                'name_ar': 'إنشاء الصوت',
+                'name_en': 'Audio Generation',
+                'credits_required': 8
+            },
+            'campaign_analysis': {
+                'name_ar': 'تحليل الحملة',
+                'name_en': 'Campaign Analysis',
+                'credits_required': 3
             }
         }
     
-    def detect_language(self, text):
-        """Detect the language of the input text"""
-        # Simple language detection based on common words and characters
-        arabic_chars = len([c for c in text if '\u0600' <= c <= '\u06FF'])
-        total_chars = len([c for c in text if c.isalpha()])
-        
-        if total_chars == 0:
-            return 'en'
-        
-        arabic_ratio = arabic_chars / total_chars
-        
-        if arabic_ratio > 0.3:
-            return 'ar'
-        
-        # Check for other language indicators
-        if any(word in text.lower() for word in ['the', 'and', 'is', 'are', 'this', 'that']):
-            return 'en'
-        elif any(word in text.lower() for word in ['le', 'la', 'et', 'est', 'sont', 'ce', 'cette']):
-            return 'fr'
-        elif any(word in text.lower() for word in ['el', 'la', 'y', 'es', 'son', 'este', 'esta']):
-            return 'es'
-        elif any(word in text.lower() for word in ['der', 'die', 'das', 'und', 'ist', 'sind', 'dieser']):
-            return 'de'
-        
-        return 'en'  # Default to English
-    
-    def get_system_prompt(self, language='ar', user_context=None):
-        """Get system prompt based on language and user context"""
-        
-        if language == 'ar':
-            base_prompt = """أنت مساعد ذكي متخصص في التسويق الآلي. مهمتك هي مساعدة المستخدمين في:
-
-1. إنشاء محتوى تسويقي (نصوص، صور، فيديوهات)
-2. إدارة حملات التسويق عبر منصات التواصل الاجتماعي
-3. تحليل الأداء وتقديم التوصيات
-4. اقتراح استراتيجيات تسويقية مناسبة
-5. إنشاء هاشتاجات وكلمات مفتاحية
-6. تحديد أفضل أوقات النشر
-7. اكتشاف التريندات الحالية
-
-الاستراتيجيات التسويقية المتاحة:
-- تسويق المحتوى
-- التسويق عبر وسائل التواصل الاجتماعي  
-- التسويق عبر المؤثرين
-- التسويق عبر البريد الإلكتروني
-- تحسين محركات البحث
-- الإعلانات المدفوعة
-- التسويق الفيروسي
-- سرد قصة العلامة التجارية
-
-المنصات المدعومة: فيسبوك، انستجرام، تيك توك، يوتيوب، تويتر، لينكد إن
-
-اللغات المدعومة: العربية، الإنجليزية، الفرنسية، الإسبانية، الألمانية، الإيطالية، البرتغالية، الروسية، الصينية، اليابانية
-
-كن مفيداً ومحترفاً في ردودك."""
-
-        else:  # English
-            base_prompt = """You are an intelligent marketing automation assistant. Your role is to help users with:
-
-1. Creating marketing content (text, images, videos)
-2. Managing social media marketing campaigns
-3. Analyzing performance and providing recommendations
-4. Suggesting appropriate marketing strategies
-5. Creating hashtags and keywords
-6. Determining optimal posting times
-7. Discovering current trends
-
-Available Marketing Strategies:
-- Content Marketing
-- Social Media Marketing
-- Influencer Marketing
-- Email Marketing
-- SEO Marketing
-- Paid Advertising
-- Viral Marketing
-- Brand Storytelling
-
-Supported Platforms: Facebook, Instagram, TikTok, YouTube, Twitter, LinkedIn
-
-Supported Languages: Arabic, English, French, Spanish, German, Italian, Portuguese, Russian, Chinese, Japanese
-
-Be helpful and professional in your responses."""
-
-        if user_context:
-            context_info = f"\n\nUser Context:\n"
-            if user_context.get('business_type'):
-                context_info += f"Business Type: {user_context['business_type']}\n"
-            if user_context.get('target_audience'):
-                context_info += f"Target Audience: {user_context['target_audience']}\n"
-            if user_context.get('preferred_platforms'):
-                context_info += f"Preferred Platforms: {', '.join(user_context['preferred_platforms'])}\n"
-            if user_context.get('budget_range'):
-                context_info += f"Budget Range: {user_context['budget_range']}\n"
-            
-            base_prompt += context_info
-        
-        return base_prompt
-    
-    async def process_message(self, message, user_id=None, session_id=None, language=None):
-        """Process user message and generate appropriate response"""
+    async def process_user_query(self, user_id: int, query: str, language: str = 'ar') -> dict:
+        """Process user query and provide intelligent response"""
         
         try:
-            # Detect language if not provided
-            if not language:
-                language = self.detect_language(message)
+            user = User.query.get(user_id)
+            if not user:
+                return {'success': False, 'error': 'User not found'}
             
-            # Get user context if user_id provided
-            user_context = None
-            if user_id:
-                user = User.get_by_id(user_id)
-                if user:
-                    user_context = {
-                        'business_type': user.business_type,
-                        'target_audience': user.target_audience,
-                        'preferred_platforms': user.get_preferred_platforms(),
-                        'subscription_status': user.subscription_status
-                    }
+            # Analyze query intent
+            intent_analysis = await self.analyze_query_intent(query, language)
             
-            # Check if this is a task creation request
-            task_intent = self.analyze_task_intent(message, language)
+            if not intent_analysis['success']:
+                return intent_analysis
             
-            if task_intent:
-                return await self.handle_task_creation(task_intent, user_id, language)
+            intent = intent_analysis['intent']
+            entities = intent_analysis['entities']
             
-            # Generate AI response
-            system_prompt = self.get_system_prompt(language, user_context)
+            # Route to appropriate handler
+            if intent == 'create_content':
+                return await self.handle_content_creation(user_id, entities, language)
+            elif intent == 'analyze_campaign':
+                return await self.handle_campaign_analysis(user_id, entities, language)
+            elif intent == 'get_recommendations':
+                return await self.handle_recommendations(user_id, entities, language)
+            elif intent == 'schedule_task':
+                return await self.handle_task_scheduling(user_id, entities, language)
+            elif intent == 'general_question':
+                return await self.handle_general_question(user_id, query, language)
+            else:
+                return await self.handle_general_question(user_id, query, language)
+        
+        except Exception as e:
+            logger.error(f"Error processing user query: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    async def analyze_query_intent(self, query: str, language: str = 'ar') -> dict:
+        """Analyze user query to determine intent and extract entities"""
+        
+        try:
+            if language == 'ar':
+                prompt = f"""أنت مساعد ذكي لتحليل استعلامات المستخدمين في مجال التسويق الرقمي.
+
+حلل الاستعلام التالي وحدد:
+1. النية (intent): create_content, analyze_campaign, get_recommendations, schedule_task, general_question
+2. الكيانات (entities): المنتج، الخدمة، المنصة، الجمهور المستهدف، إلخ
+
+الاستعلام: "{query}"
+
+أجب بتنسيق JSON:
+{{
+    "intent": "النية المحددة",
+    "entities": {{
+        "product": "المنتج إن وجد",
+        "platform": "المنصة إن وجدت",
+        "audience": "الجمهور المستهدف إن وجد",
+        "content_type": "نوع المحتوى إن وجد"
+    }},
+    "confidence": 0.95
+}}"""
+            else:
+                prompt = f"""You are an intelligent assistant for analyzing user queries in digital marketing.
+
+Analyze the following query and determine:
+1. Intent: create_content, analyze_campaign, get_recommendations, schedule_task, general_question
+2. Entities: product, service, platform, target audience, etc.
+
+Query: "{query}"
+
+Respond in JSON format:
+{{
+    "intent": "determined intent",
+    "entities": {{
+        "product": "product if found",
+        "platform": "platform if found",
+        "audience": "target audience if found",
+        "content_type": "content type if found"
+    }},
+    "confidence": 0.95
+}}"""
             
-            response = await openai.ChatCompletion.acreate(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": message}
-                ],
-                max_tokens=1000,
-                temperature=0.7
+            result = await api_integration.generate_text(
+                prompt=prompt,
+                max_tokens=300,
+                temperature=0.3,
+                service='google_gemini'
             )
             
-            ai_response = response.choices[0].message.content
-            
-            # Add suggestions for common actions
-            suggestions = self.get_action_suggestions(message, language)
-            
-            return {
-                'success': True,
-                'response': ai_response,
-                'language': language,
-                'suggestions': suggestions,
-                'session_id': session_id or str(uuid.uuid4())
-            }
-            
+            if result['success']:
+                response_text = result['data'].get('text', '{}')
+                
+                # Try to parse JSON response
+                try:
+                    analysis = json.loads(response_text)
+                    return {
+                        'success': True,
+                        'intent': analysis.get('intent', 'general_question'),
+                        'entities': analysis.get('entities', {}),
+                        'confidence': analysis.get('confidence', 0.5)
+                    }
+                except json.JSONDecodeError:
+                    # Fallback to simple keyword analysis
+                    return self.simple_intent_analysis(query, language)
+            else:
+                return self.simple_intent_analysis(query, language)
+        
         except Exception as e:
-            logger.error(f"Error processing AI message: {str(e)}")
-            
-            error_message = "عذراً، حدث خطأ في معالجة رسالتك. يرجى المحاولة مرة أخرى." if language == 'ar' else "Sorry, there was an error processing your message. Please try again."
-            
-            return {
-                'success': False,
-                'error': error_message,
-                'language': language
-            }
+            logger.error(f"Error analyzing query intent: {str(e)}")
+            return self.simple_intent_analysis(query, language)
     
-    def analyze_task_intent(self, message, language):
-        """Analyze if the message contains a task creation intent"""
+    def simple_intent_analysis(self, query: str, language: str) -> dict:
+        """Simple keyword-based intent analysis as fallback"""
         
-        task_keywords = {
-            'ar': {
-                'content_creation': ['أنشئ', 'اكتب', 'صمم', 'محتوى', 'منشور', 'إعلان'],
-                'image_generation': ['صورة', 'تصميم', 'لوجو', 'بانر', 'جرافيك'],
-                'video_creation': ['فيديو', 'مقطع', 'ريل', 'قصة'],
-                'campaign_creation': ['حملة', 'استراتيجية', 'خطة تسويقية'],
-                'hashtag_generation': ['هاشتاج', 'علامة', 'كلمات مفتاحية'],
-                'analysis': ['حلل', 'تحليل', 'إحصائيات', 'أداء']
-            },
-            'en': {
-                'content_creation': ['create', 'write', 'design', 'content', 'post', 'ad'],
-                'image_generation': ['image', 'design', 'logo', 'banner', 'graphic'],
-                'video_creation': ['video', 'clip', 'reel', 'story'],
-                'campaign_creation': ['campaign', 'strategy', 'marketing plan'],
-                'hashtag_generation': ['hashtag', 'tag', 'keywords'],
-                'analysis': ['analyze', 'analysis', 'statistics', 'performance']
-            }
-        }
+        query_lower = query.lower()
         
-        keywords = task_keywords.get(language, task_keywords['en'])
-        message_lower = message.lower()
-        
-        for task_type, words in keywords.items():
-            if any(word in message_lower for word in words):
+        # Arabic keywords
+        if language == 'ar':
+            if any(word in query_lower for word in ['أنشئ', 'اكتب', 'صمم', 'أعمل']):
                 return {
-                    'type': task_type,
-                    'message': message,
-                    'language': language
+                    'success': True,
+                    'intent': 'create_content',
+                    'entities': {},
+                    'confidence': 0.7
+                }
+            elif any(word in query_lower for word in ['حلل', 'تحليل', 'إحصائيات']):
+                return {
+                    'success': True,
+                    'intent': 'analyze_campaign',
+                    'entities': {},
+                    'confidence': 0.7
+                }
+            elif any(word in query_lower for word in ['اقترح', 'نصائح', 'توصيات']):
+                return {
+                    'success': True,
+                    'intent': 'get_recommendations',
+                    'entities': {},
+                    'confidence': 0.7
                 }
         
-        return None
-    
-    async def handle_task_creation(self, task_intent, user_id, language):
-        """Handle automatic task creation based on user intent"""
-        
-        if not user_id:
-            return {
-                'success': False,
-                'error': 'يجب تسجيل الدخول لإنشاء المهام' if language == 'ar' else 'Login required to create tasks',
-                'login_required': True
-            }
-        
-        # Estimate task cost
-        task_data = {
-            'content': task_intent['message'],
-            'language': language,
-            'platforms': ['facebook', 'instagram']  # Default platforms
-        }
-        
-        cost_estimate = pricing_engine.calculate_task_cost(task_intent['type'], task_data, user_id)
-        
-        if not cost_estimate['success']:
-            return {
-                'success': False,
-                'error': 'خطأ في تقدير تكلفة المهمة' if language == 'ar' else 'Error estimating task cost'
-            }
-        
-        # Check user credits
-        credit_check = credit_manager.check_user_credits(user_id, cost_estimate['final_cost'])
-        
-        if not credit_check['has_enough_credits']:
-            return {
-                'success': False,
-                'error': f"رصيد غير كافي. المطلوب: {cost_estimate['final_cost']} كريديت" if language == 'ar' else f"Insufficient credits. Required: {cost_estimate['final_cost']} credits",
-                'required_credits': cost_estimate['final_cost'],
-                'current_balance': credit_check['current_balance'],
-                'credit_shortage': True
-            }
-        
-        # Create task
-        task = Task(
-            user_id=user_id,
-            title=f"مهمة {task_intent['type']}" if language == 'ar' else f"{task_intent['type']} Task",
-            description=task_intent['message'],
-            task_type=task_intent['type'],
-            category='ai_generated',
-            estimated_credits=cost_estimate['final_cost'],
-            priority='medium'
-        )
-        
-        task.set_input_data(task_data)
-        task.save()
-        
-        # Deduct credits
-        credit_result = credit_manager.deduct_credits(
-            user_id=user_id,
-            amount=cost_estimate['final_cost'],
-            description=f"AI Assistant Task: {task_intent['type']}",
-            category='task_execution',
-            task_id=task.id
-        )
-        
-        if not credit_result['success']:
-            # Delete task if credit deduction failed
-            db.session.delete(task)
-            db.session.commit()
-            
-            return {
-                'success': False,
-                'error': 'فشل في خصم الكريديت' if language == 'ar' else 'Failed to deduct credits'
-            }
-        
-        response_text = f"تم إنشاء المهمة بنجاح! سيتم تنفيذها قريباً.\nرقم المهمة: {task.id}\nالتكلفة: {cost_estimate['final_cost']} كريديت" if language == 'ar' else f"Task created successfully! It will be executed soon.\nTask ID: {task.id}\nCost: {cost_estimate['final_cost']} credits"
+        # English keywords
+        else:
+            if any(word in query_lower for word in ['create', 'write', 'design', 'make', 'generate']):
+                return {
+                    'success': True,
+                    'intent': 'create_content',
+                    'entities': {},
+                    'confidence': 0.7
+                }
+            elif any(word in query_lower for word in ['analyze', 'analysis', 'statistics', 'performance']):
+                return {
+                    'success': True,
+                    'intent': 'analyze_campaign',
+                    'entities': {},
+                    'confidence': 0.7
+                }
+            elif any(word in query_lower for word in ['suggest', 'recommend', 'advice', 'tips']):
+                return {
+                    'success': True,
+                    'intent': 'get_recommendations',
+                    'entities': {},
+                    'confidence': 0.7
+                }
         
         return {
             'success': True,
-            'response': response_text,
-            'task_created': True,
-            'task_id': task.id,
-            'cost': cost_estimate['final_cost'],
-            'new_balance': credit_result['new_balance']
+            'intent': 'general_question',
+            'entities': {},
+            'confidence': 0.5
         }
     
-    def get_action_suggestions(self, message, language):
-        """Get action suggestions based on message content"""
+    async def handle_content_creation(self, user_id: int, entities: dict, language: str) -> dict:
+        """Handle content creation requests"""
         
-        suggestions = []
-        message_lower = message.lower()
+        try:
+            user = User.query.get(user_id)
+            
+            # Check credits
+            required_credits = 5  # Base credits for content creation
+            if user.credits < required_credits:
+                return {
+                    'success': False,
+                    'error': 'Insufficient credits' if language == 'en' else 'رصيد غير كافي',
+                    'required_credits': required_credits,
+                    'user_credits': user.credits
+                }
+            
+            # Create task
+            task = Task(
+                user_id=user_id,
+                task_type='content_generation',
+                status='pending',
+                priority='medium',
+                language=language,
+                task_data=json.dumps(entities)
+            )
+            
+            db.session.add(task)
+            db.session.commit()
+            
+            # Deduct credits
+            credit_manager.deduct_credits(user_id, required_credits, 'Content creation task')
+            
+            response_text = (
+                f"تم إنشاء مهمة إنشاء المحتوى بنجاح. رقم المهمة: {task.id}"
+                if language == 'ar' else
+                f"Content creation task created successfully. Task ID: {task.id}"
+            )
+            
+            return {
+                'success': True,
+                'message': response_text,
+                'task_id': task.id,
+                'credits_used': required_credits,
+                'remaining_credits': user.credits - required_credits
+            }
+        
+        except Exception as e:
+            logger.error(f"Error handling content creation: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    async def handle_campaign_analysis(self, user_id: int, entities: dict, language: str) -> dict:
+        """Handle campaign analysis requests"""
+        
+        try:
+            user = User.query.get(user_id)
+            
+            # Check credits
+            required_credits = 3
+            if user.credits < required_credits:
+                return {
+                    'success': False,
+                    'error': 'Insufficient credits' if language == 'en' else 'رصيد غير كافي',
+                    'required_credits': required_credits,
+                    'user_credits': user.credits
+                }
+            
+            # Get user's recent campaigns
+            recent_tasks = Task.query.filter_by(
+                user_id=user_id,
+                task_type='content_generation'
+            ).order_by(Task.created_at.desc()).limit(5).all()
+            
+            if not recent_tasks:
+                return {
+                    'success': False,
+                    'error': 'No campaigns found to analyze' if language == 'en' else 'لا توجد حملات للتحليل'
+                }
+            
+            # Generate analysis
+            analysis_prompt = self.build_analysis_prompt(recent_tasks, language)
+            
+            result = await api_integration.generate_text(
+                prompt=analysis_prompt,
+                max_tokens=800,
+                temperature=0.7,
+                service='google_gemini'
+            )
+            
+            if result['success']:
+                analysis_text = result['data'].get('text', '')
+                
+                # Deduct credits
+                credit_manager.deduct_credits(user_id, required_credits, 'Campaign analysis')
+                
+                return {
+                    'success': True,
+                    'analysis': analysis_text,
+                    'campaigns_analyzed': len(recent_tasks),
+                    'credits_used': required_credits,
+                    'remaining_credits': user.credits - required_credits
+                }
+            else:
+                return {'success': False, 'error': result.get('error')}
+        
+        except Exception as e:
+            logger.error(f"Error handling campaign analysis: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def build_analysis_prompt(self, tasks: list, language: str) -> str:
+        """Build prompt for campaign analysis"""
+        
+        task_summaries = []
+        for task in tasks:
+            task_data = json.loads(task.task_data) if task.task_data else {}
+            task_summaries.append({
+                'id': task.id,
+                'type': task.task_type,
+                'status': task.status,
+                'created_at': task.created_at.isoformat(),
+                'data': task_data
+            })
         
         if language == 'ar':
-            if any(word in message_lower for word in ['محتوى', 'منشور', 'كتابة']):
-                suggestions.extend([
-                    {'text': 'إنشاء محتوى لفيسبوك', 'action': 'create_facebook_content'},
-                    {'text': 'إنشاء محتوى لانستجرام', 'action': 'create_instagram_content'},
-                    {'text': 'إنشاء محتوى لتيك توك', 'action': 'create_tiktok_content'}
-                ])
-            
-            if any(word in message_lower for word in ['صورة', 'تصميم', 'لوجو']):
-                suggestions.extend([
-                    {'text': 'توليد صورة بالذكاء الاصطناعي', 'action': 'generate_image'},
-                    {'text': 'تصميم لوجو', 'action': 'design_logo'},
-                    {'text': 'إنشاء بانر إعلاني', 'action': 'create_banner'}
-                ])
-            
-            if any(word in message_lower for word in ['فيديو', 'مقطع', 'ريل']):
-                suggestions.extend([
-                    {'text': 'إنشاء فيديو قصير', 'action': 'create_short_video'},
-                    {'text': 'إنشاء فيديو ترويجي', 'action': 'create_promo_video'}
-                ])
-            
-            if any(word in message_lower for word in ['هاشتاج', 'كلمات', 'مفتاحية']):
-                suggestions.extend([
-                    {'text': 'توليد هاشتاجات', 'action': 'generate_hashtags'},
-                    {'text': 'بحث كلمات مفتاحية', 'action': 'keyword_research'}
-                ])
-        
-        else:  # English
-            if any(word in message_lower for word in ['content', 'post', 'write']):
-                suggestions.extend([
-                    {'text': 'Create Facebook content', 'action': 'create_facebook_content'},
-                    {'text': 'Create Instagram content', 'action': 'create_instagram_content'},
-                    {'text': 'Create TikTok content', 'action': 'create_tiktok_content'}
-                ])
-            
-            if any(word in message_lower for word in ['image', 'design', 'logo']):
-                suggestions.extend([
-                    {'text': 'Generate AI image', 'action': 'generate_image'},
-                    {'text': 'Design logo', 'action': 'design_logo'},
-                    {'text': 'Create banner', 'action': 'create_banner'}
-                ])
-            
-            if any(word in message_lower for word in ['video', 'clip', 'reel']):
-                suggestions.extend([
-                    {'text': 'Create short video', 'action': 'create_short_video'},
-                    {'text': 'Create promo video', 'action': 'create_promo_video'}
-                ])
-            
-            if any(word in message_lower for word in ['hashtag', 'keywords', 'tags']):
-                suggestions.extend([
-                    {'text': 'Generate hashtags', 'action': 'generate_hashtags'},
-                    {'text': 'Keyword research', 'action': 'keyword_research'}
-                ])
-        
-        return suggestions[:5]  # Limit to 5 suggestions
+            prompt = f"""أنت خبير في تحليل الحملات التسويقية.
 
-# Global AI Assistant instance
+حلل الحملات التالية وقدم تقريراً شاملاً:
+
+الحملات: {json.dumps(task_summaries, ensure_ascii=False, indent=2)}
+
+قدم تحليلاً يتضمن:
+1. أداء الحملات العام
+2. نقاط القوة والضعف
+3. توصيات للتحسين
+4. اتجاهات ملاحظة
+5. خطة عمل مقترحة
+
+اكتب التحليل بشكل مفصل ومفيد:"""
+        else:
+            prompt = f"""You are an expert in marketing campaign analysis.
+
+Analyze the following campaigns and provide a comprehensive report:
+
+Campaigns: {json.dumps(task_summaries, indent=2)}
+
+Provide analysis including:
+1. Overall campaign performance
+2. Strengths and weaknesses
+3. Improvement recommendations
+4. Observed trends
+5. Suggested action plan
+
+Write detailed and useful analysis:"""
+        
+        return prompt
+    
+    async def handle_recommendations(self, user_id: int, entities: dict, language: str) -> dict:
+        """Handle recommendation requests"""
+        
+        try:
+            user = User.query.get(user_id)
+            
+            if language == 'ar':
+                prompt = f"""أنت خبير تسويق رقمي. قدم توصيات مخصصة للمستخدم:
+
+معلومات المستخدم:
+- عدد المهام المكتملة: {Task.query.filter_by(user_id=user_id, status='completed').count()}
+- الاستراتيجيات المستخدمة: {entities}
+
+قدم 5 توصيات عملية لتحسين الأداء التسويقي:"""
+            else:
+                prompt = f"""You are a digital marketing expert. Provide personalized recommendations:
+
+User Information:
+- Completed tasks: {Task.query.filter_by(user_id=user_id, status='completed').count()}
+- Used strategies: {entities}
+
+Provide 5 practical recommendations to improve marketing performance:"""
+            
+            result = await api_integration.generate_text(
+                prompt=prompt,
+                max_tokens=600,
+                temperature=0.7,
+                service='google_gemini'
+            )
+            
+            if result['success']:
+                recommendations = result['data'].get('text', '')
+                
+                return {
+                    'success': True,
+                    'recommendations': recommendations,
+                    'personalized': True
+                }
+            else:
+                return {'success': False, 'error': result.get('error')}
+        
+        except Exception as e:
+            logger.error(f"Error handling recommendations: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    async def handle_task_scheduling(self, user_id: int, entities: dict, language: str) -> dict:
+        """Handle task scheduling requests"""
+        
+        try:
+            # Extract scheduling information from entities
+            schedule_time = entities.get('time', 'now')
+            task_type = entities.get('task_type', 'content_generation')
+            
+            # Create scheduled task
+            task = Task(
+                user_id=user_id,
+                task_type=task_type,
+                status='scheduled',
+                priority='medium',
+                language=language,
+                task_data=json.dumps(entities),
+                scheduled_at=datetime.utcnow() + timedelta(hours=1)  # Default to 1 hour later
+            )
+            
+            db.session.add(task)
+            db.session.commit()
+            
+            response_text = (
+                f"تم جدولة المهمة بنجاح. رقم المهمة: {task.id}"
+                if language == 'ar' else
+                f"Task scheduled successfully. Task ID: {task.id}"
+            )
+            
+            return {
+                'success': True,
+                'message': response_text,
+                'task_id': task.id,
+                'scheduled_at': task.scheduled_at.isoformat()
+            }
+        
+        except Exception as e:
+            logger.error(f"Error handling task scheduling: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    async def handle_general_question(self, user_id: int, query: str, language: str) -> dict:
+        """Handle general marketing questions"""
+        
+        try:
+            if language == 'ar':
+                prompt = f"""أنت خبير تسويق رقمي ومساعد ذكي. أجب على السؤال التالي بشكل مفيد ومفصل:
+
+السؤال: {query}
+
+قدم إجابة شاملة تتضمن:
+- معلومات مفيدة ودقيقة
+- نصائح عملية قابلة للتطبيق
+- أمثلة إن أمكن
+- خطوات واضحة إذا كان السؤال يتطلب ذلك
+
+الإجابة:"""
+            else:
+                prompt = f"""You are a digital marketing expert and intelligent assistant. Answer the following question helpfully and in detail:
+
+Question: {query}
+
+Provide a comprehensive answer including:
+- Useful and accurate information
+- Practical actionable tips
+- Examples if possible
+- Clear steps if the question requires them
+
+Answer:"""
+            
+            result = await api_integration.generate_text(
+                prompt=prompt,
+                max_tokens=800,
+                temperature=0.7,
+                service='google_gemini'
+            )
+            
+            if result['success']:
+                answer = result['data'].get('text', '')
+                
+                return {
+                    'success': True,
+                    'answer': answer,
+                    'query': query,
+                    'language': language
+                }
+            else:
+                return {'success': False, 'error': result.get('error')}
+        
+        except Exception as e:
+            logger.error(f"Error handling general question: {str(e)}")
+            return {'success': False, 'error': str(e)}
+
+
+# Global instance
 ai_assistant = AIAssistant()
 
+
 @ai_assistant_bp.route('/chat', methods=['POST'])
-def chat():
-    """Main chat endpoint for AI Assistant"""
+@jwt_required()
+def chat_with_assistant():
+    """Chat with AI assistant"""
+    
     try:
+        user_id = get_jwt_identity()
         data = request.get_json()
-        message = data.get('message', '').strip()
         
-        if not message:
+        query = data.get('query', '').strip()
+        language = data.get('language', 'ar')
+        
+        if not query:
             return jsonify({
                 'success': False,
-                'error': 'Message is required'
+                'error': 'Query is required' if language == 'en' else 'الاستعلام مطلوب'
             }), 400
         
-        user_id = data.get('user_id')
-        session_id = data.get('session_id')
-        language = data.get('language')
-        
-        # Process message asynchronously
-        import asyncio
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        result = loop.run_until_complete(
-            ai_assistant.process_message(message, user_id, session_id, language)
-        )
-        
-        loop.close()
+        # Process query
+        result = ai_assistant.process_user_query(user_id, query, language)
         
         return jsonify(result)
-        
+    
     except Exception as e:
         logger.error(f"Error in chat endpoint: {str(e)}")
         return jsonify({
@@ -469,151 +597,168 @@ def chat():
             'error': 'Internal server error'
         }), 500
 
-@ai_assistant_bp.route('/quick-action', methods=['POST'])
-def quick_action():
-    """Handle quick action buttons"""
-    try:
-        data = request.get_json()
-        action = data.get('action')
-        user_id = data.get('user_id')
-        language = data.get('language', 'ar')
-        
-        if not action:
-            return jsonify({
-                'success': False,
-                'error': 'Action is required'
-            }), 400
-        
-        # Map actions to task types
-        action_mapping = {
-            'create_facebook_content': 'social_media_post',
-            'create_instagram_content': 'social_media_post',
-            'create_tiktok_content': 'social_media_post',
-            'generate_image': 'image_generation',
-            'design_logo': 'logo_design',
-            'create_banner': 'banner_creation',
-            'create_short_video': 'video_generation',
-            'create_promo_video': 'promotional_video',
-            'generate_hashtags': 'hashtag_generation',
-            'keyword_research': 'hashtag_research'
-        }
-        
-        task_type = action_mapping.get(action)
-        if not task_type:
-            return jsonify({
-                'success': False,
-                'error': 'Invalid action'
-            }), 400
-        
-        # Create task intent
-        task_intent = {
-            'type': task_type,
-            'message': f"Quick action: {action}",
-            'language': language
-        }
-        
-        # Process task creation
-        import asyncio
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        result = loop.run_until_complete(
-            ai_assistant.handle_task_creation(task_intent, user_id, language)
-        )
-        
-        loop.close()
-        
-        return jsonify(result)
-        
-    except Exception as e:
-        logger.error(f"Error in quick action endpoint: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Internal server error'
-        }), 500
 
-@ai_assistant_bp.route('/languages', methods=['GET'])
-def get_supported_languages():
-    """Get list of supported languages"""
-    return jsonify({
-        'success': True,
-        'languages': ai_assistant.supported_languages
-    })
-
-@ai_assistant_bp.route('/strategies', methods=['GET'])
-def get_marketing_strategies():
-    """Get list of available marketing strategies"""
-    language = request.args.get('language', 'ar')
-    
-    strategies = {}
-    for key, strategy in ai_assistant.marketing_strategies.items():
-        strategies[key] = {
-            'name': strategy.get(f'name_{language}', strategy['name_en']),
-            'description': strategy.get(f'description_{language}', strategy['description_en'])
-        }
-    
-    return jsonify({
-        'success': True,
-        'strategies': strategies
-    })
-
-@ai_assistant_bp.route('/user-context', methods=['POST'])
+@ai_assistant_bp.route('/suggestions', methods=['GET'])
 @jwt_required()
-def update_user_context():
-    """Update user context for better AI responses"""
+def get_suggestions():
+    """Get personalized suggestions for user"""
+    
     try:
         user_id = get_jwt_identity()
-        user = User.get_by_id(user_id)
+        language = request.args.get('language', 'ar')
         
+        user = User.query.get(user_id)
         if not user:
             return jsonify({
                 'success': False,
                 'error': 'User not found'
             }), 404
         
-        data = request.get_json()
+        # Get user statistics
+        completed_tasks = Task.query.filter_by(user_id=user_id, status='completed').count()
+        pending_tasks = Task.query.filter_by(user_id=user_id, status='pending').count()
         
-        # Update user profile with context
-        if 'business_type' in data:
-            user.business_type = data['business_type']
+        # Generate suggestions based on user activity
+        suggestions = []
         
-        if 'target_audience' in data:
-            user.target_audience = data['target_audience']
+        if completed_tasks == 0:
+            if language == 'ar':
+                suggestions.extend([
+                    "ابدأ بإنشاء أول محتوى تسويقي لك",
+                    "جرب إنشاء منشور لوسائل التواصل الاجتماعي",
+                    "اكتشف استراتيجيات التسويق المختلفة"
+                ])
+            else:
+                suggestions.extend([
+                    "Start by creating your first marketing content",
+                    "Try creating a social media post",
+                    "Explore different marketing strategies"
+                ])
         
-        if 'preferred_platforms' in data:
-            user.set_preferred_platforms(data['preferred_platforms'])
+        elif completed_tasks < 5:
+            if language == 'ar':
+                suggestions.extend([
+                    "جرب إنشاء محتوى بصري جذاب",
+                    "حلل أداء حملاتك السابقة",
+                    "اكتشف جمهورك المستهدف"
+                ])
+            else:
+                suggestions.extend([
+                    "Try creating engaging visual content",
+                    "Analyze your previous campaigns",
+                    "Discover your target audience"
+                ])
         
-        if 'marketing_goals' in data:
-            user.set_marketing_goals(data['marketing_goals'])
-        
-        user.save()
+        else:
+            if language == 'ar':
+                suggestions.extend([
+                    "أنشئ استراتيجية تسويق متقدمة",
+                    "جدول مهامك التسويقية",
+                    "اكتشف الاتجاهات الجديدة في السوق"
+                ])
+            else:
+                suggestions.extend([
+                    "Create an advanced marketing strategy",
+                    "Schedule your marketing tasks",
+                    "Discover new market trends"
+                ])
         
         return jsonify({
             'success': True,
-            'message': 'User context updated successfully'
+            'suggestions': suggestions,
+            'user_stats': {
+                'completed_tasks': completed_tasks,
+                'pending_tasks': pending_tasks,
+                'credits': user.credits
+            }
         })
-        
+    
     except Exception as e:
-        logger.error(f"Error updating user context: {str(e)}")
+        logger.error(f"Error getting suggestions: {str(e)}")
         return jsonify({
             'success': False,
             'error': 'Internal server error'
         }), 500
 
-@ai_assistant_bp.route('/session/<session_id>/history', methods=['GET'])
-def get_chat_history(session_id):
-    """Get chat history for a session"""
+
+@ai_assistant_bp.route('/quick-actions', methods=['GET'])
+@jwt_required()
+def get_quick_actions():
+    """Get quick actions for user"""
+    
     try:
-        # In a real implementation, you would store chat history in database
-        # For now, return empty history
+        language = request.args.get('language', 'ar')
+        
+        if language == 'ar':
+            quick_actions = [
+                {
+                    'id': 'create_post',
+                    'title': 'إنشاء منشور',
+                    'description': 'أنشئ منشور جذاب لوسائل التواصل الاجتماعي',
+                    'icon': 'edit',
+                    'credits': 5
+                },
+                {
+                    'id': 'generate_image',
+                    'title': 'إنشاء صورة',
+                    'description': 'أنشئ صورة تسويقية احترافية',
+                    'icon': 'image',
+                    'credits': 10
+                },
+                {
+                    'id': 'analyze_campaign',
+                    'title': 'تحليل الحملة',
+                    'description': 'احصل على تحليل مفصل لحملاتك',
+                    'icon': 'analytics',
+                    'credits': 3
+                },
+                {
+                    'id': 'get_recommendations',
+                    'title': 'احصل على توصيات',
+                    'description': 'احصل على نصائح مخصصة لتحسين أدائك',
+                    'icon': 'lightbulb',
+                    'credits': 2
+                }
+            ]
+        else:
+            quick_actions = [
+                {
+                    'id': 'create_post',
+                    'title': 'Create Post',
+                    'description': 'Create engaging social media post',
+                    'icon': 'edit',
+                    'credits': 5
+                },
+                {
+                    'id': 'generate_image',
+                    'title': 'Generate Image',
+                    'description': 'Create professional marketing image',
+                    'icon': 'image',
+                    'credits': 10
+                },
+                {
+                    'id': 'analyze_campaign',
+                    'title': 'Analyze Campaign',
+                    'description': 'Get detailed analysis of your campaigns',
+                    'icon': 'analytics',
+                    'credits': 3
+                },
+                {
+                    'id': 'get_recommendations',
+                    'title': 'Get Recommendations',
+                    'description': 'Get personalized tips to improve performance',
+                    'icon': 'lightbulb',
+                    'credits': 2
+                }
+            ]
+        
         return jsonify({
             'success': True,
-            'history': [],
-            'session_id': session_id
+            'quick_actions': quick_actions
         })
-        
+    
     except Exception as e:
-        logger.error(f"Error getting chat history: {str(e)}")
+        logger.error(f"Error getting quick actions: {str(e)}")
         return jsonify({
             'success': False,
             'error': 'Internal server error'
